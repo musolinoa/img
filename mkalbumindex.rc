@@ -1,0 +1,48 @@
+#!/bin/rc
+
+this=`{basename `{pwd}}
+prev=`{echo $this - 1 | bc | sed 's/^.$/0&/'}
+next=`{echo $this + 1 | bc | sed 's/^.$/0&/'}
+
+cat <<EOF
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body{
+	background-color: black;
+	text-align: center;
+}
+img{
+	width: 128px;
+	height: 96px;
+}
+a{
+	color: white;
+}
+.disabled{
+	color: grey;
+}
+</style>
+</head>
+<body>
+<p>
+EOF
+
+if(test -d ../^$"prev)
+	echo '<a href="../'^$"prev^'/index.html">prev</a>'
+if not
+	echo '<span class="disabled">prev</span>'
+echo ' | <a href="../index.html">up</a> | '
+if(test -d ../^$"next)
+	echo '<a href="../'^$next^'/index.html">next</a>'
+if not
+	echo '<span class="disabled">next</span>'
+echo '</p>'
+
+ls *.thumb.JPG | awk '{ printf "<a href=\"%d.html\"><img src=\"%s\"/></a>\n", NR, $0 }'
+
+cat <<EOF
+</body>
+</html>
+EOF

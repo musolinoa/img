@@ -1,0 +1,22 @@
+#!/bin/rc
+
+fn mkmontage{
+	imgs=`{find -name '*.small.JPG' >[2]/dev/null | shuffle >[2]/dev/null | sed $2^q}
+	if(! ~ $#imgs $2){
+		status='not enough images'
+	}
+	if not{
+		n=`{echo 320/$1 | bc}
+		montage -gravity Center -crop $n^x^$n+0+0 +repage $imgs -geometry $n^x^$n -thumbnail $n^x^$n  -mode Concatenate -tile $1^x^$1 montage.jpg
+	}
+}
+
+if(! mkmontage 5 25
+&& ! mkmontage 4 16
+&& ! mkmontage 3 9
+&& ! mkmontage 2 4
+&& ! mkmontage 1 1){
+	echo 'E: failed to make montage for '^$1 >[1=2]
+	exit 1
+}
+exit 0

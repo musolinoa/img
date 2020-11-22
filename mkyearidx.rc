@@ -1,0 +1,61 @@
+#!/bin/rc
+
+this=`{basename `{pwd}}
+prev=`{echo $this - 1 | bc}
+next=`{echo $this + 1 | bc}
+
+months=(January February March April May June July August September October November December)
+
+cat <<EOF
+<!DOCTYPE html>
+<html>
+<head>
+<title>$1</title>
+<style>
+body{
+	background-color: black;
+	text-align: center;
+}
+a{
+	color: white;
+}
+div{
+	float: left;
+	text-align: center;
+	padding: 0.25cm;
+	width: 400px;
+	height: 400px;
+}
+img{
+	width: 320px;
+	height: 320px;
+}
+.disabled{
+	color: grey;
+}
+</style>
+</head>
+<body>
+<p>
+EOF
+
+if(test -d ../^$"prev)
+	echo '<a href="../'^$"prev^'/index.html">prev</a>'
+if not
+	echo '<span class="disabled">prev</span>'
+echo ' | <a href="../index.html">up</a> | '
+if(test -d ../^$"next)
+	echo '<a href="../'^$next^'/index.html">next</a>'
+if not
+	echo '<span class="disabled">next</span>'
+echo '</p>'
+
+for(m in `{seq -w 1 12}){
+	if(test -d $m)
+		echo '<div><a href="'^$m^'/index.html"><img src="'^$m^'/montage.jpg"/><p>'^$months($m)^'</p></a></div>'
+}
+
+cat <<EOF
+</body>
+</html>
+EOF

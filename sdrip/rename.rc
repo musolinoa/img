@@ -1,0 +1,15 @@
+#!/bin/rc -e
+
+rename jpg JPG *.jpg >[2]/dev/null || {}
+exiv2 --verbose --Force -t rename *.JPG
+
+sha1sum *.JPG *.jpg >[2]/dev/null | awk '
+function quote(s){
+	gsub("''", "''''", s)
+	return sprintf("%s", s)
+}
+{
+	hash=substr($1, 1, 8)
+	date=substr($2, 1, 15)
+	printf "mv %s %s.%s.full.JPG\n", quote($2), date, hash
+}' | rc
