@@ -1,9 +1,9 @@
 #!/bin/rc -e
 
 rename jpg JPG *.jpg >[2]/dev/null || {}
-exiv2 --verbose --Force -t rename *.JPG
+exiv2 --verbose --Force -t rename *.JPG *.HEIC
 
-sha1sum *.JPG *.jpg >[2]/dev/null | awk '
+sha1sum *.JPG *.HEIC >[2]/dev/null | awk '
 function quote(s){
 	gsub("''", "''''", s)
 	return sprintf("%s", s)
@@ -11,5 +11,7 @@ function quote(s){
 {
 	hash=substr($1, 1, 8)
 	date=substr($2, 1, 15)
-	printf "mv %s %s.%s.full.JPG\n", quote($2), date, hash
+	match($2, ".[A-Z]+$")
+	fext=substr($2, RSTART+1, RLENGTH-1)
+	printf "mv %s %s.%s.full.%s\n", quote($2), date, hash, fext
 }' | rc

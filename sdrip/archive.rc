@@ -1,6 +1,6 @@
 #!/bin/rc
 
-ls *.JPG | awk -F_ '{
+ls *.JPG *.HEIC | awk -F_ '{
 	year=substr($1, 1, 4)
 	month=substr($1, 5, 2)
 	dirs[sprintf("%s/%s", year, month)] = 1
