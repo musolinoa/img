@@ -1,14 +1,12 @@
 MKSHELL=rc
 
-fullsize=`{ls *.full.JPG >[2]/dev/null}
-bigs=`{ls *.full.JPG | sed 's/\.full\.JPG/.big.JPG/'}
-mediums=`{ls *.full.JPG | sed 's/\.full\.JPG/.medium.JPG/'}
-smalls=`{ls *.full.JPG | sed 's/\.full\.JPG/.small.JPG/'}
-thumbs=`{ls *.full.JPG | sed 's/\.full\.JPG/.thumb.JPG/'}
-n=`{ls *.full.JPG | wc -l}
+fullsize=`{ls *.full.* >[2]/dev/null}
+bigs=`{ls *.full.* | sed 's/\.full\.[A-Z]\+/.big.JPG/'}
+mediums=`{ls *.full.* | sed 's/\.full\.[A-Z]\+/.medium.JPG/'}
+smalls=`{ls *.full.* | sed 's/\.full\.[A-Z]\+/.small.JPG/'}
+thumbs=`{ls *.full.* | sed 's/\.full\.[A-Z]\+/.thumb.JPG/'}
+n=`{ls *.full.* | wc -l}
 pages=`{seq 1 $n | sed 's/$/.html/'}
-
-cflags=-auto-orient
 
 all:V: bigs mediums smalls thumbs html montage.jpg
 bigs:V: $bigs
@@ -16,8 +14,8 @@ mediums:V: $mediums
 smalls:V: $smalls
 thumbs:V: $thumbs
 
-%.big.JPG: %.full.JPG
-	convert $prereq -resize 1024 -auto-orient $target
+%.big.JPG:
+	convert $stem^.full.* -resize 1024 -auto-orient $target
 
 %.medium.JPG: %.big.JPG
 	convert $prereq -resize 512 -auto-orient $target
