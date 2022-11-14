@@ -34,19 +34,19 @@ echo '</p>
 </html>'
 }
 
-ls *.full.JPG | sed 's/\.full\.JPG//' | awk '{
+ls *.full.* | sed 's/\.full\.[A-Z]\+$//' | awk '{
 	if (buf){
 		i = NR - 1
 		p = i - 1
 		if(p < 1)
 			p = ""
 		n = i + 1
-		printf "mkpage %s.big.JPG %s.full.JPG ''%s'' ''%s'' >%d.html\n", buf, buf, p, n, i
+		printf "mkpage %s.big.JPG %s.full.* ''%s'' ''%s'' >%d.html\n", buf, buf, p, n, i
 	}
 	buf = $0
 }
 END{
 	i = NR
 	p = i - 1
-	printf "mkpage %s.big.JPG %s.full.JPG ''%s'' '''' >%d.html\n", buf, buf, p, i
+	printf "mkpage %s.big.JPG %s.full.* ''%s'' '''' >%d.html\n", buf, buf, p, i
 }' | rc
