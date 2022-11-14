@@ -4,9 +4,9 @@ ls *.JPG *.HEIC | awk -F_ '{
 	year=substr($1, 1, 4)
 	month=substr($1, 5, 2)
 	dirs[sprintf("%s/%s", year, month)] = 1
-	printf "mv -n %s /home/alex/img/%s/%s/%s\n", $0, year, month, $0
+	printf "mv -n %s %s/img/%s/%s/%s\n", $0, ENVIRON["HOME"], year, month, $0
 }
 END{
 	for(d in dirs)
-		printf "mkdir -p /home/alex/img/%s\n", d
+		printf "mkdir -p %s/img/%s\n", ENVIRON["HOME"], d
 }' | tac
