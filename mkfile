@@ -9,12 +9,15 @@ years=\
 	2018\
 	2019\
 	2020\
+	2021\
+	2022\
 
 dirs=\
 	moto\
 	guns\
 	sssc\
 	group-shoot\
+	ttc2022\
 
 fullsize=`{find $years $dirs -type f -name '*.full.*'}
 
