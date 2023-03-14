@@ -16,7 +16,7 @@ if(! mkmontage 5 25
 && ! mkmontage 3 9
 && ! mkmontage 2 4
 && ! mkmontage 1 1){
-	echo 'E: failed to make montage for '^$1 >[1=2]
+	echo 'E: failed to make montage for' `{pwd} >[1=2]
 	exit 1
 }
 exit 0

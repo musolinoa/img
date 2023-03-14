@@ -1,23 +1,9 @@
 MKSHELL=rc
 
-months=\
-	01\
-	02\
-	03\
-	04\
-	05\
-	06\
-	07\
-	08\
-	09\
-	10\
-	11\
-	12\
-
-months=`{ls -d $months >[2]/dev/null}
+months=`{ls | grep '^[0-1][0-9]$' >[2]/dev/null}
 montages=`{ls -d $months | sed 's,$,/montage.jpg,'}
 
-all:V: $montages index.html montage.jpg
+all:V: $montages index.html montage.jpg subdirs
 
 [0-9]+/montage\.jpg:RQ:
 	for(d in $months)@{
@@ -29,10 +15,10 @@ all:V: $montages index.html montage.jpg
 			status=()
 	}
 
-html:V: index.html
+subdirs:V:
 	for(d in $months)@{
 		cd $d
-		mk -f ../../album.mk $target
+		mk -f ../../album.mk
 	}
 
 index.html: $HOME/img/mkyearidx.rc $montages
