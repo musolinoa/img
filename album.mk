@@ -15,16 +15,16 @@ smalls:V: $smalls
 thumbs:V: $thumbs
 
 %.big.JPG:
-	convert $stem^.full.* -resize 1024 -auto-orient $target
+	convert $stem^.full.* -resize x768 -auto-orient $target
 
 %.medium.JPG: %.big.JPG
-	convert $prereq -resize 512 -auto-orient $target
+	convert $prereq -resize x384 -auto-orient $target
 
 %.small.JPG: %.medium.JPG
-	convert $prereq -resize 256 -auto-orient $target
+	convert $prereq -resize x192 -auto-orient $target
 
 %.thumb.JPG: %.small.JPG
-	convert $prereq -resize 128 -auto-orient $target
+	convert $prereq -resize x96 -auto-orient $target
 
 montage.jpg: smalls
 	$HOME/img/mkmontage.rc

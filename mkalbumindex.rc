@@ -14,7 +14,6 @@ body{
 	text-align: center;
 }
 img{
-	width: 128px;
 	height: 96px;
 }
 a{
