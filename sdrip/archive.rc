@@ -1,6 +1,10 @@
 #!/bin/rc
 
-{{ls *.JPG; ls *.HEIC} >[2]/dev/null} | awk -F_ '{
+{{ls *.JPG; ls *.PNG; ls *.HEIC} >[2]/dev/null} | awk -F_ '/^misc\./{
+	printf "mv -n %s %s/img/misc/%s\n", $0, ENVIRON["HOME"], $0
+	next
+}
+{
 	year=substr($1, 1, 4)
 	month=substr($1, 5, 2)
 	dirs[sprintf("%s/%s", year, month)] = 1
