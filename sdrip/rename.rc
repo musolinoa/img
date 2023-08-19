@@ -2,11 +2,12 @@
 
 . ./fns.rc
 
-rename jpg JPG *.jpg >[2]/dev/null || {}
-rename png PNG *.PNG >[2]/dev/null || {}
+rename webp WEBP -- *.webp >[2]/dev/null || {}
+rename jpg JPG -- *.jpg >[2]/dev/null || {}
+rename png PNG -- *.png >[2]/dev/null || {}
 exiv2 -q --Force -t rename `{lscmd >[2]/dev/null} || true
 
-sha1sum `{lscmd >[2]/dev/null} | awk '
+sha1sum -- `{lscmd >[2]/dev/null} | awk '
 function quote(s){
 	gsub("''", "''''", s)
 	return sprintf("%s", s)
@@ -16,12 +17,18 @@ function quote(s){
 	date=substr($2, 1, 15)
 	match($2, ".[A-Z]+$")
 	fext=substr($2, RSTART+1, RLENGTH-1)
-	printf "mv %s %s.%s.full.%s\n", quote($2), date, hash, fext
+	src=quote($2)
+	dst=sprintf("%s.%s.full.%s", date, hash, fext)
+	if(src != dst)
+		printf "mv -- %s %s\n", src, dst
 	next
 }
 {
 	hash=$1
 	match($2, ".[A-Z]+$")
 	fext=substr($2, RSTART+1, RLENGTH-1)
-	printf "mv %s misc.%s.full.%s\n", quote($2), $1, fext
+	src=quote($2)
+	dst=sprintf("misc.%s.full.%s", $1, fext)
+	if(src != dst)
+		printf "mv -- %s %s\n", src, dst
 }' | rc
