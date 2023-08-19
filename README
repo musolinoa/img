@@ -1,0 +1,15 @@
+requirements:
+
+* coreutils
+* plan9port
+* shuffle
+* imagemagick
+
+howto:
+
+1. copy/move images into sdrip directory
+2. cd sdrip
+3. run rename.rc
+4. run archive.rc (pipe output to sh once you're happy)
+5. cd ..
+6. mk
