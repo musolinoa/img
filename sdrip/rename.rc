@@ -1,9 +1,6 @@
 #!/bin/rc -e
 
-fn lscmd{
-	for(ext in HEIC JPG PNG)
-		ls *.^$ext >[2]/dev/null || {}
-}
+. ./fns.rc
 
 rename jpg JPG *.jpg >[2]/dev/null || {}
 rename png PNG *.PNG >[2]/dev/null || {}

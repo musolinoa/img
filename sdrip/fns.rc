@@ -1,0 +1,6 @@
+#!/bin/rc
+
+fn lscmd{
+	for(ext in HEIC JPG PNG WEBP)
+		ls -- *.^$ext >[2]/dev/null || {}
+}
