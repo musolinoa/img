@@ -18,4 +18,4 @@
 END{
 	for(d in dirs)
 		printf "mkdir -p %s/img/%s\n", ENVIRON["HOME"], d
-}' | tac
+}' | tac | sh
