@@ -1,6 +1,6 @@
 MKSHELL=/bin/rc
 
-years=`{ls | grep '^[0-9][0-9][0-9][0-9]$'}
+years=`{ls | grep '^[0-9][0-9][0-9][0-9]$' | sort -r}
 
 dirs=\
 	moto\
