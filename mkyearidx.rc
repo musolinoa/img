@@ -62,7 +62,7 @@ if(~ $#prev 0)
 if not
 	echo '<a href="../'^$"prev^'/index.html">prev</a>'
 
-echo ' | <a href="../index.html">up</a> | '
+echo ' | <a href="../index.html">index</a> | '
 
 next=`{findnext $this +1 `{date '+%Y'}}
 if(~ $#next 0)
