@@ -1,8 +1,6 @@
 #!/bin/rc
 
 this=`{basename `{pwd}}
-prev=`{echo $this - 1 | bc}
-next=`{echo $this + 1 | bc}
 
 months=(January February March April May June July August September October November December)
 
@@ -39,15 +37,30 @@ img{
 <p>
 EOF
 
-if(test -d ../^$"prev)
-	echo '<a href="../'^$"prev^'/index.html">prev</a>'
-if not
+fn findnext{
+	@{
+		for(i in `{seq `{echo $1 $2 | bc} $2 $3}){
+			if(test -d ../^$i){
+				echo $i
+				exit
+			}
+		}
+	}
+}
+
+prev=`{findnext $this -1 1990}
+if(~ $#prev 0)
 	echo '<span class="disabled">prev</span>'
-echo ' | <a href="../index.html">up</a> | '
-if(test -d ../^$"next)
-	echo '<a href="../'^$next^'/index.html">next</a>'
 if not
+	echo '<a href="../'^$"prev^'/index.html">prev</a>'
+
+echo ' | <a href="../index.html">up</a> | '
+
+next=`{findnext $this +1 `{date '+%Y'}}
+if(~ $#next 0)
 	echo '<span class="disabled">next</span>'
+if not
+	echo '<a href="../'^$next^'/index.html">next</a>'
 echo '</p>'
 
 for(m in `{seq -w 1 12}){
