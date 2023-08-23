@@ -17,12 +17,12 @@ div{
 	float: left;
 	text-align: center;
 	padding: 0.25cm;
-	width: 400px;
-	height: 400px;
+	width: 200px;
+	height: 200px;
 }
 img{
-	width: 320px;
-	height: 320px;
+	width: 160px;
+	height: 160px;
 }
 </style>
 </head>
