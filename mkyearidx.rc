@@ -14,19 +14,27 @@ body{
 	background-color: black;
 	text-align: center;
 }
-a{
+div>p, a{
 	color: white;
 }
 div{
 	float: left;
 	text-align: center;
 	padding: 0.25cm;
-	width: 400px;
-	height: 400px;
+	width: 200px;
+	height: 200px;
+}
+div.bordered{
+	float: none;
+	display: inline-block;
+	width: 160px;
+	height: 160px;
+	padding: 0px;
+	border: 1px solid white;
 }
 img{
-	width: 320px;
-	height: 320px;
+	width: 160px;
+	height: 160px;
 }
 .disabled{
 	color: grey;
@@ -66,6 +74,8 @@ echo '</p>'
 for(m in `{seq -w 1 12}){
 	if(test -d $m)
 		echo '<div><a href="'^$m^'/index.html"><img src="'^$m^'/montage.jpg"/><p>'^$months($m)^'</p></a></div>'
+	if not
+		echo '<div><div class="bordered"></div><p>'^$months($m)^'</p></div>'
 }
 
 cat <<EOF
