@@ -2,13 +2,6 @@ MKSHELL=/bin/rc
 
 years=`{ls | grep '^[0-9][0-9][0-9][0-9]$' | sort -r}
 
-dirs=\
-	moto\
-	guns\
-	sssc\
-	group-shoot\
-	ttc2022\
-
 fullsize=`{find $years -type f -name '*.full.*'}
 
 montages=`{echo $years/^montage.jpg}
