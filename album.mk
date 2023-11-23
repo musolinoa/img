@@ -14,7 +14,7 @@ mediums:V: $mediums
 smalls:V: $smalls
 thumbs:V: $thumbs
 
-%.big.JPG:
+%.big.JPG: %.full.JPG
 	convert $stem^.full.* -resize x768 -auto-orient $target
 
 %.medium.JPG: %.big.JPG
