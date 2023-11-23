@@ -13,9 +13,14 @@
 	year=substr($1, 1, 4)
 	month=substr($1, 5, 2)
 	dirs[sprintf("%s/%s", year, month)] = 1
-	printf "mv -n %s %s/img/%s/%s/%s\n", $0, ENVIRON["HOME"], year, month, $0
+	mvs[$0] = sprintf("%s/img/%s/%s/%s", ENVIRON["HOME"], year, month, $0)
 }
 END{
+	printf "flag e +\n"
 	for(d in dirs)
 		printf "mkdir -p %s/img/%s\n", ENVIRON["HOME"], d
-}' | tac | sh
+	for(k in mvs)
+		printf "mv %s %s\n", k, mvs[k]
+	printf "exit 0\n"
+	exit(0)
+}' | rc
