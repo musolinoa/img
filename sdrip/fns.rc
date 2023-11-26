@@ -2,5 +2,5 @@
 
 fn lscmd{
 	for(ext in HEIC JPG PNG WEBP)
-		ls -- *.^$ext >[2]/dev/null || {}
+		ls -- *.^$ext >[2]/dev/null || true
 }
