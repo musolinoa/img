@@ -1,11 +1,19 @@
-#!/bin/rc -e
+#!/bin/rc
+
+flag e +
 
 . ./fns.rc
 
 rename webp WEBP -- *.webp >[2]/dev/null || {}
 rename jpg JPG -- *.jpg >[2]/dev/null || {}
 rename png PNG -- *.png >[2]/dev/null || {}
-exiv2 -q --Force -t rename `{lscmd >[2]/dev/null} || true
+
+files=`{lscmd >[2]/dev/null}
+
+if(~ $#files 0)
+	exit 0
+
+exiv2 -q --Force -t rename $files || {}
 
 sha1sum -- `{lscmd >[2]/dev/null} | awk '
 function quote(s){
