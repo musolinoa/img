@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>{{.CurrYear}}</title>
+<title>{{.Title}}</title>
+<link rel="shortcut icon" href="montage.jpg">
 <style>
 body{
 	background-color: black;
@@ -36,14 +37,14 @@ img{
 </head>
 <body>
 <p>
-{{if .PrevYear}}
-<a href="../{{.PrevYear}}/index.html">prev</a>
+{{if .Prev}}
+<a href="../{{.Prev}}/index.html">prev</a>
 {{else}}
 <span class="disabled">prev</span>
 {{end}}
  | <a href="../index.html">index</a> | 
-{{if .NextYear}}
-<a href="../{{.NextYear}}/index.html">prev</a>
+{{if .Next}}
+<a href="../{{.Next}}/index.html">prev</a>
 {{else}}
 <span class="disabled">next</span>
 {{end}}
