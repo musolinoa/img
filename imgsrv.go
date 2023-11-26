@@ -1,14 +1,17 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"path"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -18,7 +21,6 @@ type YearIndexHandler struct {
 }
 
 func (h *YearIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Printf("YearIndexHandler.ServeHTTP: %s\n", r.URL.Path)
 	if r.URL.Path == "montage.jpg" {
 		http.ServeFile(w, r, fmt.Sprintf("%s/montage.jpg", h.Idx.Path))
 		return
@@ -31,13 +33,15 @@ func (h *YearIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type TplData struct {
-		PrevYear string
-		CurrYear string
-		NextYear string
+		Title string
+		Prev, Next string
+		Curr string
 		Months [12]MonthTplData
 	}
 	tplData := TplData{
-		CurrYear: path.Base(h.Idx.Path),
+		Title: fmt.Sprintf("Photos :: %s", path.Base(h.Idx.Path)),
+		Next: h.Idx.Next(),
+		Prev: h.Idx.Prev(),
 	}
 	for i := 0; i < 12; i++ {
 		if h.Idx.Months[i] != nil {
@@ -57,10 +61,10 @@ type AlbumIndexHandler struct {
 	Idx *AlbumIdx
 	IndexTpl *template.Template
 	ImageTpl *template.Template
+	Tags *Tags
 }
 
 func (h *AlbumIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Printf("AlbumIndexHandler.ServeHTTP: %s\n", r.URL.Path)
 	switch r.URL.Path {
 	case "":
 		fallthrough
@@ -75,12 +79,16 @@ func (h *AlbumIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Images: h.Idx.Images,
 		}
 		if h.Idx.Year != 0 {
+			tplData.Title = fmt.Sprintf("%s %d", time.Month(h.Idx.Month).String()[0:3], h.Idx.Year)
+		}
+		tplData.Title = fmt.Sprintf("Photos :: %s", tplData.Title)
+		if h.Idx.Year != 0 {
 			yearStr := fmt.Sprintf("%d", h.Idx.Year)
-			if next := h.Idx.DB.nextMonth(yearStr, h.Idx.Month, +1); next != "" {
-				tplData.Next = "../../" + next
+			if next := h.Idx.DB.nextMonth(yearStr, h.Idx.Month, +1); next != nil {
+				tplData.Next = fmt.Sprintf("../../%d/%02d", next.Year, next.Month + 1)
 			}
-			if prev := h.Idx.DB.nextMonth(yearStr, h.Idx.Month, -1); prev != "" {
-				tplData.Prev = "../../" + prev
+			if prev := h.Idx.DB.nextMonth(yearStr, h.Idx.Month, -1); prev != nil {
+				tplData.Prev = fmt.Sprintf("../../%d/%02d", prev.Year, prev.Month + 1)
 			}
 		}
 		if err := h.IndexTpl.Execute(w, tplData); err != nil {
@@ -93,6 +101,7 @@ func (h *AlbumIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Title string
 			Prev, Next string
 			Image string
+			Tags []string
 		}
 		image, _ := strings.CutSuffix(r.URL.Path, ".html")
 		tplData := TplData{
@@ -100,7 +109,12 @@ func (h *AlbumIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Next: h.Idx.Next(image, ".html"),
 			Prev: h.Idx.Prev(image, ".html"),
 			Image: image,
+			Tags: h.Tags.TagsForImage(image),
 		}
+		if h.Idx.Year != 0 {
+			tplData.Title = fmt.Sprintf("%s %d", time.Month(h.Idx.Month).String()[0:3], h.Idx.Year)
+		}
+		tplData.Title = fmt.Sprintf("Photos :: %s :: %s", tplData.Title, image)
 		if err := h.ImageTpl.Execute(w, tplData); err != nil {
 			log.Printf("error executing template: %v\n", err)
 		}
@@ -119,12 +133,13 @@ type MainIndexHandler struct {
 }
 
 func (h *MainIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Printf("IndexHandler.ServeHTTP\n")
 	type TplData struct {
+		Title string
 		Years sort.StringSlice
 		Albums sort.StringSlice
 	}
 	tplData := TplData{
+		Title: "Photos",
 		Years: make([]string, 0, len(h.DB.Years)),
 		Albums: make([]string, 0, len(h.DB.Albums)),
 	}
@@ -166,6 +181,15 @@ func (a *AlbumIdx) next(img, suffix string, step int) string {
 			return a.Images[i] + suffix
 		}
 	}
+	if a.Year != 0 {
+		if mIdx := a.DB.nextMonth(fmt.Sprintf("%d", a.Year), a.Month, step); mIdx != nil {
+			i = 0
+			if step < 0 {
+				i = len(mIdx.Images)-1
+			}
+			return fmt.Sprintf("../../%d/%02d/%s.html", mIdx.Year, mIdx.Month + 1, mIdx.Images[i])
+		}
+	}
 	return ""
 }
 
@@ -183,13 +207,48 @@ type YearIdx struct {
 	Months [12]*AlbumIdx
 }
 
+func (yIdx *YearIdx) next(step int) *YearIdx {
+	var years []string
+	for y := range yIdx.DB.Years {
+		years = append(years, y)
+	}
+	sort.Strings(years)
+	i := 0
+	y0 := path.Base(yIdx.Path)
+	for i < len(years) {
+		if years[i] == y0 {
+			break
+		}
+		i++
+	}
+	i += step
+	if 0 <= i && i < len(years) {
+		return yIdx.DB.Years[years[i]]
+	}
+	return nil
+}
+
+func (yIdx *YearIdx) Next() string {
+	if next := yIdx.next(+1); next != nil {
+		return path.Base(next.Path)
+	}
+	return ""
+}
+
+func (yIdx *YearIdx) Prev() string {
+	if prev := yIdx.next(-1); prev != nil {
+		return path.Base(prev.Path)
+	}
+	return ""
+}
+
 type ImgDB struct {
 	Path string
 	Years map[string]*YearIdx
 	Albums map[string]*AlbumIdx
 }
 
-func (db *ImgDB) nextMonth(y0 string, m0, step int) string {
+func (db *ImgDB) nextMonth(y0 string, m0, step int) *AlbumIdx {
 	var years []string
 	for y := range db.Years {
 		years = append(years, y)
@@ -203,10 +262,9 @@ func (db *ImgDB) nextMonth(y0 string, m0, step int) string {
 		i0++
 	}
 	for i := i0; 0 <= i && i < len(years); i += step {
-		log.Printf("y=%s, m0=%d, i=%d\n", years[i], m0+1, i)
 		for m := m0 + step; 0 <= m && m < 12; m += step {
-			if db.Years[years[i]].Months[m] != nil {
-				return fmt.Sprintf("%s/%02d", years[i], m + 1)
+			if res := db.Years[years[i]].Months[m]; res != nil {
+				return res
 			}
 		}
 		if step > 0 {
@@ -215,7 +273,7 @@ func (db *ImgDB) nextMonth(y0 string, m0, step int) string {
 			m0 = 12
 		}
 	}
-	return ""
+	return nil
 }
 
 type Templates struct {
@@ -265,7 +323,7 @@ func loadYear(db *ImgDB, year int, path string) (*YearIdx, error) {
 	return &yearIdx, nil
 }
 
-func loadDatabase(path string, yearRanges []YearRange, albums []string) (*ImgDB, error) {
+func loadImageDatabase(path string, yearRanges []YearRange, albums []string) (*ImgDB, error) {
 	db := &ImgDB{
 		Path: path,
 		Years: make(map[string]*YearIdx),
@@ -296,6 +354,140 @@ func loadDatabase(path string, yearRanges []YearRange, albums []string) (*ImgDB,
 		}
 	}
 	return db, nil
+}
+
+type StrLUT map[string]map[string]struct{}
+
+func (lut StrLUT) Acc(other StrLUT) {
+	for k1, obin := range other {
+		bin := lut[k1]
+		if bin == nil {
+			bin = make(map[string]struct{})
+			lut[k1] = bin
+		}
+		for k2 := range obin {
+			bin[k2] = struct{}{}
+		}
+	}
+}
+
+func (lut StrLUT) Add(k, v string) {
+	bin := lut[k]
+	if bin == nil {
+		bin = make(map[string]struct{})
+	}
+	bin[v] = struct{}{}
+	lut[k] = bin
+}
+
+func (lut StrLUT) Del(k, v string) {
+	if bin, ok := lut[k]; ok {
+		delete(bin, v)
+	}
+}
+
+func (lut StrLUT) Lookup(s string) []string {
+	var res []string
+	if bin := lut[s]; bin != nil {
+		for k := range bin {
+			res = append(res, k)
+		}
+	}
+	return res
+}
+
+type Tags struct {
+	sync.RWMutex
+	TagLUT StrLUT
+	ImgLUT StrLUT
+}
+
+func NewTags() *Tags {
+	return &Tags{
+		TagLUT: make(StrLUT),
+		ImgLUT: make(StrLUT),
+	}
+}
+
+func (t *Tags) Acc(u *Tags) {
+	u.RLock()
+	defer u.RUnlock()
+	t.Lock()
+	defer t.Unlock()
+	t.TagLUT.Acc(u.TagLUT)
+	t.ImgLUT.Acc(u.ImgLUT)
+}
+
+func (t *Tags) Tag(img, tag string) {
+	t.Lock()
+	defer t.Unlock()
+	t.TagLUT.Add(tag, img)
+	t.ImgLUT.Add(img, tag)
+}
+
+func (t *Tags) Untag(img, tag string) {
+	t.Lock()
+	defer t.Unlock()
+	t.TagLUT.Del(tag, img)
+	t.ImgLUT.Del(img, tag)
+}
+
+func (t *Tags) TagsForImage(img string) []string {
+	t.RLock()
+	defer t.RUnlock()
+	tags := t.ImgLUT.Lookup(img)
+	sort.Strings(tags)
+	return tags
+}
+
+func (t *Tags) ImagesForTag(tag string) []string {
+	t.RLock()
+	defer t.RUnlock()
+	return t.TagLUT.Lookup(tag)	
+}
+
+func parseTagList(r io.Reader) (*Tags, error) {
+	t := NewTags()
+	s := bufio.NewScanner(r)
+	for s.Scan() {
+		line := s.Text()
+		if line == "" || line[0] == '#' {
+			continue
+		}
+		f := strings.Fields(line)
+		if len(f) < 2 {
+			return nil, fmt.Errorf("bad format: expected at least 2 fields, got %d", len(f))
+		}
+		for i := 1; i < len(f); i++ {
+			t.Tag(f[0], f[i])
+		}
+	}
+	if err := s.Err(); err != nil {
+		return nil, err
+	}
+	return t, nil
+}
+
+func loadTags(path string) (*Tags, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return parseTagList(bufio.NewReader(f))
+}
+
+type TagApiHandler struct {
+	Tags *Tags
+}
+
+func (h *TagApiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	t, err := parseTagList(r.Body)
+	if err != nil {
+		http.Error(w, "bad request", 400)
+		return
+	}
+	h.Tags.Acc(t)
 }
 
 func loadTemplates(path string) (*Templates, error) {
@@ -339,16 +531,20 @@ func main() {
 	if err != nil {
 		log.Fatalf("could not load templates: %v\n", err)
 	}
-	db, err := loadDatabase(".", yearRanges, albums)
+	db, err := loadImageDatabase(".", yearRanges, albums)
 	if err != nil {
 		log.Fatalf("could not load database: %v\n", err)
 	}
+	tags, err := loadTags("tags")
+	if err != nil {
+		log.Fatalf("could not load tags: %v\n", err)
+	}
+	http.Handle("/api/tag", &TagApiHandler{tags})
 	for y, yIdx := range db.Years {
 		for m, mIdx := range yIdx.Months {
 			if mIdx != nil {
 				prefix := fmt.Sprintf("/%s/%02d/", y, m+1)
-				log.Printf("adding handler for %s\n", prefix)
-				http.Handle(prefix, http.StripPrefix(prefix, &AlbumIndexHandler{mIdx, templates.Album, templates.Image}))
+				http.Handle(prefix, http.StripPrefix(prefix, &AlbumIndexHandler{mIdx, templates.Album, templates.Image, tags}))
 			}
 		}
 		prefix := fmt.Sprintf("/%s/", y)
@@ -356,7 +552,7 @@ func main() {
 	}
 	for album, idx := range db.Albums {
 		prefix := fmt.Sprintf("/%s/", album)
-		http.Handle(prefix, http.StripPrefix(prefix, &AlbumIndexHandler{idx, templates.Album, templates.Image}))
+		http.Handle(prefix, http.StripPrefix(prefix, &AlbumIndexHandler{idx, templates.Album, templates.Image, tags}))
 	}
 	http.Handle("/", &MainIndexHandler{db, templates.Main})
 	log.Fatal(http.ListenAndServe(":8080", nil))
