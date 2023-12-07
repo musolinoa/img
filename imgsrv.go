@@ -543,10 +543,6 @@ type TagApiHandler struct {
 	Tags *Tags
 }
 
-func (h *TagApiHandler) addTag(img, tag string) {
-
-}
-
 func (h *TagApiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad request", 400)
@@ -561,9 +557,6 @@ func (h *TagApiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	action := "adding"
 	if delete {
 		action = "deleting"
-	}
-	for _, tag := range r.Form["tags"] {
-		h.addTag(img, tag)
 	}
 	for _, v := range r.Form["tags"] {
 		tags := strings.Split(v, " ")
