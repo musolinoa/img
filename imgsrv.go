@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"html/template"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -101,6 +99,7 @@ func (h *AlbumIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Title string
 			Prev, Next string
 			Image string
+			ImgTags []string
 			Tags []string
 		}
 		image, _ := strings.CutSuffix(r.URL.Path, ".html")
@@ -109,8 +108,10 @@ func (h *AlbumIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Next: h.Idx.Next(image, ".html"),
 			Prev: h.Idx.Prev(image, ".html"),
 			Image: image,
-			Tags: h.Tags.TagsForImage(image),
+			ImgTags: h.Tags.TagsForImage(image),
+			Tags: h.Tags.ShortList(),
 		}
+		log.Printf("%s has tags: %v\n", image, tplData.Tags)
 		if h.Idx.Year != 0 {
 			tplData.Title = fmt.Sprintf("%s %d", time.Month(h.Idx.Month).String()[0:3], h.Idx.Year)
 		}
@@ -246,6 +247,12 @@ type ImgDB struct {
 	Path string
 	Years map[string]*YearIdx
 	Albums map[string]*AlbumIdx
+	Images map[string]struct{}
+}
+
+func (db *ImgDB) imageExists(img string) bool {
+	_, exists := db.Images[img]
+	return exists
 }
 
 func (db *ImgDB) nextMonth(y0 string, m0, step int) *AlbumIdx {
@@ -300,6 +307,7 @@ func loadAlbum(db *ImgDB, year, month int, path string) (*AlbumIdx, error) {
 		if strings.HasSuffix(e.Name(), suffix) {
 			name, _ := strings.CutSuffix(e.Name(), suffix)
 			albumIdx.Images = append(albumIdx.Images, name)
+			db.Images[name] = struct{}{}
 		}
 	}
 	return albumIdx, nil
@@ -328,6 +336,7 @@ func loadImageDatabase(path string, yearRanges []YearRange, albums []string) (*I
 		Path: path,
 		Years: make(map[string]*YearIdx),
 		Albums: make(map[string]*AlbumIdx),
+		Images: make(map[string]struct{}),
 	}
 	for _, r := range yearRanges {
 		curr := uint(time.Now().Year())
@@ -357,6 +366,12 @@ func loadImageDatabase(path string, yearRanges []YearRange, albums []string) (*I
 }
 
 type StrLUT map[string]map[string]struct{}
+
+func (lut StrLUT) Clr() {
+	for k := range lut {
+		delete(lut, k)
+	}
+}
 
 func (lut StrLUT) Acc(other StrLUT) {
 	for k1, obin := range other {
@@ -400,13 +415,60 @@ type Tags struct {
 	sync.RWMutex
 	TagLUT StrLUT
 	ImgLUT StrLUT
+	NewBorns StrLUT
+	DeathRow StrLUT
 }
 
 func NewTags() *Tags {
 	return &Tags{
 		TagLUT: make(StrLUT),
 		ImgLUT: make(StrLUT),
+		NewBorns: make(StrLUT),
+		DeathRow: make(StrLUT),
 	}
+}
+
+func loadTags(tagDir, img string) (*Tags, error) {
+	entries, err := os.ReadDir(fmt.Sprintf("%s/%s", tagDir, img))
+	if err != nil {
+		return nil, err
+	}
+	tags := NewTags()
+	for _, e := range entries {
+		if e.Type().IsRegular() {
+			tags.Tag(img, e.Name())
+		}
+	}
+	return tags, nil
+}
+
+func OpenTags(path string) (*Tags, error) {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+	tags := NewTags()
+	for _, e := range entries {
+		if e.IsDir() {
+			if t, err := loadTags(path, e.Name()); err != nil {
+				log.Printf("could not load tags for %s: %v\n", e.Name(), err)
+			} else {
+				tags.Acc(t)
+			}
+		}
+	}
+	return tags, nil
+}
+
+func (t *Tags) ShortList() []string {
+	t.RLock()
+	defer t.RUnlock()
+	var tags []string
+	for tag := range t.TagLUT {
+		tags = append(tags, tag)
+	}
+	sort.Strings(tags)
+	return tags
 }
 
 func (t *Tags) Acc(u *Tags) {
@@ -423,6 +485,8 @@ func (t *Tags) Tag(img, tag string) {
 	defer t.Unlock()
 	t.TagLUT.Add(tag, img)
 	t.ImgLUT.Add(img, tag)
+	t.NewBorns.Add(img, tag)
+	t.DeathRow.Del(img, tag)
 }
 
 func (t *Tags) Untag(img, tag string) {
@@ -430,6 +494,8 @@ func (t *Tags) Untag(img, tag string) {
 	defer t.Unlock()
 	t.TagLUT.Del(tag, img)
 	t.ImgLUT.Del(img, tag)
+	t.NewBorns.Del(img, tag)
+	t.DeathRow.Add(img, tag)
 }
 
 func (t *Tags) TagsForImage(img string) []string {
@@ -446,48 +512,78 @@ func (t *Tags) ImagesForTag(tag string) []string {
 	return t.TagLUT.Lookup(tag)	
 }
 
-func parseTagList(r io.Reader) (*Tags, error) {
-	t := NewTags()
-	s := bufio.NewScanner(r)
-	for s.Scan() {
-		line := s.Text()
-		if line == "" || line[0] == '#' {
-			continue
-		}
-		f := strings.Fields(line)
-		if len(f) < 2 {
-			return nil, fmt.Errorf("bad format: expected at least 2 fields, got %d", len(f))
-		}
-		for i := 1; i < len(f); i++ {
-			t.Tag(f[0], f[i])
+func (t *Tags) Flush(path string) error {
+	t.Lock()
+	defer t.Unlock()
+	for img, tags := range t.NewBorns {
+		for tag := range tags {
+			imgDir := fmt.Sprintf("%s/%s", path, img)
+			if err := os.MkdirAll(imgDir, 0755); err != nil {
+				return err
+			}
+			f, err := os.Create(fmt.Sprintf("%s/%s", imgDir, tag))
+			f.Close()
+			if err != nil {
+				return err
+			}
 		}
 	}
-	if err := s.Err(); err != nil {
-		return nil, err
+	for img, tags := range t.DeathRow {
+		for tag := range tags {
+			if err := os.Remove(fmt.Sprintf("%s/%s/%s", path, img, tag)); err != nil {
+				return err
+			}
+		}
 	}
-	return t, nil
-}
-
-func loadTags(path string) (*Tags, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	return parseTagList(bufio.NewReader(f))
+	return nil
 }
 
 type TagApiHandler struct {
+	DB *ImgDB
 	Tags *Tags
 }
 
+func (h *TagApiHandler) addTag(img, tag string) {
+
+}
+
 func (h *TagApiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	t, err := parseTagList(r.Body)
-	if err != nil {
+	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad request", 400)
 		return
 	}
-	h.Tags.Acc(t)
+	img := r.FormValue("image")
+	if !h.DB.imageExists(img) {
+		http.Error(w, "not found", 404)
+		return
+	}
+	_, delete := r.Form["delete"]
+	action := "adding"
+	if delete {
+		action = "deleting"
+	}
+	for _, tag := range r.Form["tags"] {
+		h.addTag(img, tag)
+	}
+	for _, v := range r.Form["tags"] {
+		tags := strings.Split(v, " ")
+		for _, tag := range tags {
+			tag = strings.TrimSpace(strings.TrimPrefix(tag, "#"))
+			if tag == "" {
+				continue
+			}
+			log.Printf("%s %s tag for %s\n", action, tag, img)
+			if delete {
+				h.Tags.Untag(img, tag)
+			} else {
+				h.Tags.Tag(img, tag)
+			}
+			if err := h.Tags.Flush("tags"); err != nil {
+				log.Printf("error updating tags dir: %v\n", err)
+			}
+		}
+	}
+	http.Redirect(w, r, fmt.Sprintf("/%s/%s/%s.html", img[0:4], img[4:6], img), http.StatusSeeOther)
 }
 
 func loadTemplates(path string) (*Templates, error) {
@@ -535,11 +631,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("could not load database: %v\n", err)
 	}
-	tags, err := loadTags("tags")
+	tags, err := OpenTags("tags")
 	if err != nil {
 		log.Fatalf("could not load tags: %v\n", err)
 	}
-	http.Handle("/api/tag", &TagApiHandler{tags})
+	http.Handle("/api/tag", &TagApiHandler{db, tags})
 	for y, yIdx := range db.Years {
 		for m, mIdx := range yIdx.Months {
 			if mIdx != nil {
