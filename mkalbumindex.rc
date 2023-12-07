@@ -1,5 +1,14 @@
 #!/bin/rc
 
+yflag=()
+
+while(~ $1 -*){
+	switch($1){
+	case -y
+		yflag=1
+	}
+}
+
 this=`{basename `{pwd}}
 year=`{basename `{dirname `{pwd}}}
 
@@ -7,6 +16,8 @@ cat <<EOF
 <!DOCTYPE html>
 <html>
 <head>
+<title>$1</title>
+<link rel="shortcut icon" href="montage.jpg">
 <style>
 body{
 	background-color: black;
@@ -24,11 +35,10 @@ a{
 </style>
 </head>
 <body>
-<p>
 EOF
 
 fn findnext1{
-	for(i in `{seq $2 $3 $4 | sed 's/^.$/0&/'}){
+	for(i in `{9 seq $2 $3 $4 | sed 's/^.$/0&/'}){
 		if(test -d ../../$1/^$i){
 			echo $1/$i
 			exit
@@ -38,6 +48,11 @@ fn findnext1{
 
 fn findnext{
 	@{
+		if(~ $#yflag 0){
+			echo 0
+			exit
+		}
+
 		findnext1 $1 `{echo $2 $3 | bc} $3 $4
 
 		end=1990
@@ -49,29 +64,37 @@ fn findnext{
 			me=12
 		}
 
-		for(y in `{seq `{echo $1 $3 | bc} $3 $end}){
+		for(y in `{9 seq `{echo $1 $3 | bc} $3 $end}){
 			if(test -d ../../^$y)
 				findnext1 $y $ms $3 $me
 		}
 	}
 }
 
-prev=`{findnext $year $this -1 1}
-if(~ $#prev 0)
-	echo '<span class="disabled">prev</span>'
-if not
-	echo '<a href="../../'^$"prev^'/index.html">prev</a>'
+fn prnav{
+	echo '<p>'
+	prev=`{findnext $year $this -1 1}
+	if(~ $#prev 0)
+		echo '<span class="disabled">prev</span>'
+	if not
+		echo '<a href="../../'^$"prev^'/index.html">prev</a>'
 
-echo ' | <a href="../index.html">'^$year^'</a> | '
+	if(! ~ $#yflag 0)
+		echo ' | <a href="../index.html">'^$year^'</a> | '
+	if not
+		echo ' | <a href="../index.html">index</a> | '
 
-next=`{findnext $year $this +1 12}
-if(~ $#next 0)
-	echo '<span class="disabled">next</span>'
-if not
-	echo '<a href="../../'^$next^'/index.html">next</a>'
-echo '</p>'
+	next=`{findnext $year $this +1 12}
+	if(~ $#next 0)
+		echo '<span class="disabled">next</span>'
+	if not
+		echo '<a href="../../'^$next^'/index.html">next</a>'
+	echo '</p>'
+}
 
+prnav
 ls *.thumb.JPG | awk '{ printf "<a href=\"%d.html\"><img src=\"%s\"/></a>\n", NR, $0 }'
+prnav
 
 cat <<EOF
 </body>

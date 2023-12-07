@@ -18,17 +18,33 @@ a{
 	color: grey;
 }
 </style>
+<script type="text/javascript">
+document.onkeydown = function (e) {
+	e = e || window.event
+	switch(e.keyCode){
+	case 37:
+		document.getElementById("prev").click()
+		break
+	case 38:
+		document.getElementById("up").click()
+		break
+	case 39:
+		document.getElementById("next").click()
+		break
+	}
+}
+</script>
 </head>
 <body>
 <p>
 {{if .Prev}}
-<a href="{{.Prev}}">prev</a>
+<a id="prev" href="{{.Prev}}">prev</a>
 {{else}}
 <span class="disabled">prev</span>
 {{end}}
- | <a href="../index.html">index</a> | 
+ | <a id="up" href="../index.html">index</a> | 
 {{if .Next}}
-<a href="{{.Next}}">next</a>
+<a id="next" href="{{.Next}}">next</a>
 {{else}}
 <span class="disabled">next</span>
 {{end}}

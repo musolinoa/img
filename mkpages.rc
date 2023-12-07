@@ -1,5 +1,14 @@
 #!/bin/rc
 
+yflag=()
+
+while(~ $1 -*){
+	switch($1){
+	case -y
+		yflag=1
+	}
+}
+
 month=`{basename `{pwd}}
 year=`{basename `{dirname `{pwd}}}
 
@@ -26,7 +35,10 @@ if(! ~ $3 '')
 	echo '<a href="'^$3^'.html">prev</a>'
 if not
 	echo '<span class="disabled">prev</span>'
-echo ' | <a href="../../'^$year^/^$month^'/index.html">'^$year^/^$month^'</a> | '
+if(~ $yflag 1)
+	echo ' | <a href="../../'^$year^/^$month^'/index.html">'^$year^/^$month^'</a> | '
+if not
+	echo ' | <a href=".">up</a> | '
 if(! ~ $4 '')
 	echo '<a href="'^$4^'.html">next</a>'
 if not
