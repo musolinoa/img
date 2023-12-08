@@ -63,21 +63,37 @@ type AlbumIndexHandler struct {
 }
 
 func (h *AlbumIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch r.URL.Path {
+	relpath := strings.TrimPrefix(r.URL.Path, "/")
+	log.Printf("AlbumIndexHandler: relpath=%s\n", relpath)
+	switch relpath {
 	case "":
 		fallthrough
 	case "index.html":
+		type TplImgData struct {
+			ID string
+			Prefix string
+		}
 		type TplData struct {
 			Title string
+			UpLink, UpText string
 			Prev, Next string
-			Images []string
+			Images []TplImgData
 		}
 		tplData := TplData{
 			Title: path.Base(h.Idx.Path),
-			Images: h.Idx.Images,
+			UpLink: "/index.html",
+			UpText: "index",
+		}
+		for _, img := range h.Idx.Images {
+			tplData.Images = append(tplData.Images, TplImgData{
+				ID: img,
+				Prefix: fmt.Sprintf("/%s/%s/", img[0:4], img[4:6]),
+			})
 		}
 		if h.Idx.Year != 0 {
 			tplData.Title = fmt.Sprintf("%s %d", time.Month(h.Idx.Month).String()[0:3], h.Idx.Year)
+			tplData.UpLink = fmt.Sprintf("/%d/index.html", h.Idx.Year)
+			tplData.UpText = fmt.Sprintf("%d", h.Idx.Year)
 		}
 		tplData.Title = fmt.Sprintf("Photos :: %s", tplData.Title)
 		if h.Idx.Year != 0 {
@@ -94,26 +110,30 @@ func (h *AlbumIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	if strings.HasSuffix(r.URL.Path, ".html") {
+	if strings.HasSuffix(relpath, ".html") {
 		type TplData struct {
 			Title string
+			UpText string
 			Prev, Next string
+			Prefix string
 			Image string
 			ImgTags []string
 			Tags []string
 		}
-		image, _ := strings.CutSuffix(r.URL.Path, ".html")
+		image, _ := strings.CutSuffix(relpath, ".html")
 		tplData := TplData{
 			Title: path.Base(h.Idx.Path),
+			UpText: "up",
 			Next: h.Idx.Next(image, ".html"),
 			Prev: h.Idx.Prev(image, ".html"),
+			Prefix: fmt.Sprintf("/%s/%s/", image[0:4], image[4:6]),
 			Image: image,
 			ImgTags: h.Tags.TagsForImage(image),
 			Tags: h.Tags.ShortList(),
 		}
-		log.Printf("%s has tags: %v\n", image, tplData.Tags)
 		if h.Idx.Year != 0 {
 			tplData.Title = fmt.Sprintf("%s %d", time.Month(h.Idx.Month).String()[0:3], h.Idx.Year)
+			tplData.UpText = fmt.Sprintf("%d/%02d", h.Idx.Year, h.Idx.Month+1)
 		}
 		tplData.Title = fmt.Sprintf("Photos :: %s :: %s", tplData.Title, image)
 		if err := h.ImageTpl.Execute(w, tplData); err != nil {
@@ -121,7 +141,7 @@ func (h *AlbumIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	if strings.HasSuffix(strings.ToLower(r.URL.Path), ".jpg") {
+	if strings.HasSuffix(strings.ToLower(relpath), ".jpg") {
 		http.ServeFile(w, r, fmt.Sprintf("%s/%s", h.Idx.Path, r.URL.Path))
 		return
 	}
@@ -131,6 +151,7 @@ func (h *AlbumIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type MainIndexHandler struct {
 	DB *ImgDB
 	Tpl *template.Template
+	Tags *Tags
 }
 
 func (h *MainIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -138,11 +159,13 @@ func (h *MainIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Title string
 		Years sort.StringSlice
 		Albums sort.StringSlice
+		Tags []string
 	}
 	tplData := TplData{
 		Title: "Photos",
 		Years: make([]string, 0, len(h.DB.Years)),
 		Albums: make([]string, 0, len(h.DB.Albums)),
+		Tags: h.Tags.Tags(),
 	}
 	for year := range h.DB.Years {
 		tplData.Years = append(tplData.Years, year)
@@ -420,29 +443,31 @@ type Tags struct {
 	ImgLUT StrLUT
 	NewBorns StrLUT
 	DeathRow StrLUT
+	LRU []string
+	MaxLRU int
 }
 
-func NewTags() *Tags {
+func NewTags(maxlru int) *Tags {
 	return &Tags{
 		TagLUT: make(StrLUT),
 		ImgLUT: make(StrLUT),
 		NewBorns: make(StrLUT),
 		DeathRow: make(StrLUT),
+		MaxLRU: maxlru,
 	}
 }
 
-func loadTags(tagDir, img string) (*Tags, error) {
+func loadTags(tags *Tags, tagDir, img string) error {
 	entries, err := os.ReadDir(fmt.Sprintf("%s/%s", tagDir, img))
 	if err != nil {
-		return nil, err
+		return err
 	}
-	tags := NewTags()
 	for _, e := range entries {
 		if e.Type().IsRegular() {
-			tags.Tag(img, e.Name())
+			tags.insert(img, e.Name())
 		}
 	}
-	return tags, nil
+	return nil
 }
 
 func OpenTags(path string) (*Tags, error) {
@@ -450,13 +475,11 @@ func OpenTags(path string) (*Tags, error) {
 	if err != nil {
 		return nil, err
 	}
-	tags := NewTags()
+	tags := NewTags(10)
 	for _, e := range entries {
 		if e.IsDir() {
-			if t, err := loadTags(path, e.Name()); err != nil {
+			if err := loadTags(tags, path, e.Name()); err != nil {
 				log.Printf("could not load tags for %s: %v\n", e.Name(), err)
-			} else {
-				tags.Acc(t)
 			}
 		}
 	}
@@ -464,6 +487,17 @@ func OpenTags(path string) (*Tags, error) {
 }
 
 func (t *Tags) ShortList() []string {
+	t.RLock()
+	defer t.RUnlock()
+	var tags []string
+	for _, tag := range t.LRU {
+		tags = append(tags, tag)
+	}
+	sort.Strings(tags)
+	return tags
+}
+
+func (t *Tags) Tags() []string {
 	t.RLock()
 	defer t.RUnlock()
 	var tags []string
@@ -483,13 +517,36 @@ func (t *Tags) Acc(u *Tags) {
 	t.ImgLUT.Acc(u.ImgLUT)
 }
 
-func (t *Tags) Tag(img, tag string) {
-	t.Lock()
-	defer t.Unlock()
+func (t *Tags) insert(img, tag string) {
 	t.TagLUT.Add(tag, img)
 	t.ImgLUT.Add(img, tag)
 	t.NewBorns.Add(img, tag)
 	t.DeathRow.Del(img, tag)
+}
+
+func (t *Tags) Tag(img, tag string) {
+	t.Lock()
+	defer t.Unlock()
+	t.insert(img, tag)
+	if t.MaxLRU > 0 {
+		for i := range t.LRU {
+			if t.LRU[i] == tag {
+				for i < len(t.LRU)-1 {
+					t.LRU[i] = t.LRU[i+1]
+					i++
+				}
+				t.LRU[i] = tag
+				break
+			}
+		}
+		nlru := len(t.LRU)
+		if nlru == 0 || t.LRU[nlru-1] != tag {
+			if nlru == t.MaxLRU {
+				t.LRU = t.LRU[1:]
+			}
+			t.LRU = append(t.LRU, tag)
+		}
+	}
 }
 
 func (t *Tags) Untag(img, tag string) {
@@ -512,7 +569,9 @@ func (t *Tags) TagsForImage(img string) []string {
 func (t *Tags) ImagesForTag(tag string) []string {
 	t.RLock()
 	defer t.RUnlock()
-	return t.TagLUT.Lookup(tag)	
+	images := t.TagLUT.Lookup(tag)
+	sort.Strings(images)
+	return images
 }
 
 func (t *Tags) Flush(path string) error {
@@ -533,7 +592,8 @@ func (t *Tags) Flush(path string) error {
 	}
 	for img, tags := range t.DeathRow {
 		for tag := range tags {
-			if err := os.Remove(fmt.Sprintf("%s/%s/%s", path, img, tag)); err != nil {
+			err := os.Remove(fmt.Sprintf("%s/%s/%s", path, img, tag))
+			if err != nil && !os.IsNotExist(err) {
 				return err
 			}
 		}
@@ -580,6 +640,32 @@ func (h *TagApiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	http.Redirect(w, r, fmt.Sprintf("/%s/%s/%s.html", img[0:4], img[4:6], img), http.StatusSeeOther)
+}
+
+type TagIndexHandler struct {
+	DB *ImgDB
+	IndexTpl *template.Template
+	ImageTpl *template.Template
+	Tags *Tags
+}
+
+func (h *TagIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(r.URL.Path, "/")
+	log.Printf("TagIndexHandler::ServeHTTP: tag=%s\n", parts[0])
+	if len(parts) == 1 && !strings.HasSuffix(r.URL.Path, "/") {
+		http.Redirect(w, r, fmt.Sprintf("/tags/%s/", parts[0]), http.StatusSeeOther)
+		return
+	}
+	http.StripPrefix(parts[0] + "/", &AlbumIndexHandler{
+		Idx: &AlbumIdx{
+			DB: h.DB,
+			Path: fmt.Sprintf("/tags/%s/", parts[0]),
+			Images: h.Tags.ImagesForTag(parts[0]),
+		},
+		IndexTpl: h.IndexTpl,
+		ImageTpl: h.ImageTpl,
+		Tags: h.Tags,
+	}).ServeHTTP(w, r)
 }
 
 func loadTemplates(path string) (*Templates, error) {
@@ -642,10 +728,11 @@ func main() {
 		prefix := fmt.Sprintf("/%s/", y)
 		http.Handle(prefix, http.StripPrefix(prefix, &YearIndexHandler{yIdx, templates.Year}))
 	}
+	http.Handle("/tags/", http.StripPrefix("/tags/", &TagIndexHandler{db, templates.Album, templates.Image, tags}))
 	for album, idx := range db.Albums {
 		prefix := fmt.Sprintf("/%s/", album)
 		http.Handle(prefix, http.StripPrefix(prefix, &AlbumIndexHandler{idx, templates.Album, templates.Image, tags}))
 	}
-	http.Handle("/", &MainIndexHandler{db, templates.Main})
+	http.Handle("/", &MainIndexHandler{db, templates.Main, tags})
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

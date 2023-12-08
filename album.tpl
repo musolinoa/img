@@ -42,14 +42,14 @@ document.onkeydown = function (e) {
 {{else}}
 <span class="disabled">prev</span>
 {{end}}
- | <a id="up" href="../index.html">index</a> | 
+ | <a id="up" href="{{.UpLink}}">{{.UpText}}</a> | 
 {{if .Next}}
 <a id="next" href="{{.Next}}">next</a>
 {{else}}
 <span class="disabled">next</span>
 {{end}}
 </p>
-{{range .Images}}<a href="{{.}}.html"><img src="{{.}}.thumb.JPG"/></a>
+{{range .Images}}<a href="{{.ID}}.html"><img src="{{.Prefix}}{{.ID}}.thumb.JPG"/></a>
 {{end}}
 <p>
 {{if .Prev}}

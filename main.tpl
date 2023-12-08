@@ -28,5 +28,9 @@ img{
 {{range .Years}}
 <div><a href="{{.}}/index.html"><img src="{{.}}/montage.jpg"/><p>{{.}}</p></a></div>
 {{end}}
+<hr style="clear: both;" />
+{{range .Tags}}
+<a href="/tags/{{.}}">#{{.}}</a>
+{{end}}
 </body>
 </html>
