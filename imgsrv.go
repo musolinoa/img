@@ -398,6 +398,9 @@ func (lut StrLUT) Add(k, v string) {
 func (lut StrLUT) Del(k, v string) {
 	if bin, ok := lut[k]; ok {
 		delete(bin, v)
+		if len(bin) == 0 {
+			delete(lut, k)
+		}
 	}
 }
 
