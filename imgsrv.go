@@ -42,13 +42,9 @@ func (h *YearIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Prev: h.Idx.Prev(),
 	}
 	for i := 0; i < 12; i++ {
-		if h.Idx.Months[i] != nil {
-			tplData.Months[i].Empty = false
-			tplData.Months[i].Number = fmt.Sprintf("%02d", i+1)
-			tplData.Months[i].Name = time.Month(i+1).String()
-		} else {
-			tplData.Months[i].Empty = true
-		}
+		tplData.Months[i].Empty = h.Idx.Months[i] == nil
+		tplData.Months[i].Number = fmt.Sprintf("%02d", i+1)
+		tplData.Months[i].Name = time.Month(i+1).String()
 	}
 	if err := h.Tpl.Execute(w, tplData); err != nil {
 		log.Printf("error executing template: %v\n", err)
