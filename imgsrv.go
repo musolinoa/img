@@ -64,7 +64,6 @@ type AlbumIndexHandler struct {
 
 func (h *AlbumIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	relpath := strings.TrimPrefix(r.URL.Path, "/")
-	log.Printf("AlbumIndexHandler: relpath=%s\n", relpath)
 	switch relpath {
 	case "":
 		fallthrough
@@ -651,7 +650,6 @@ type TagIndexHandler struct {
 
 func (h *TagIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(r.URL.Path, "/")
-	log.Printf("TagIndexHandler::ServeHTTP: tag=%s\n", parts[0])
 	if len(parts) == 1 && !strings.HasSuffix(r.URL.Path, "/") {
 		http.Redirect(w, r, fmt.Sprintf("/tags/%s/", parts[0]), http.StatusSeeOther)
 		return
