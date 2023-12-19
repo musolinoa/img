@@ -60,7 +60,7 @@ document.onkeydown = function (e) {
 {{end}}
  | <a id="up" href="../index.html">index</a> | 
 {{if .Next}}
-<a id="next" href="../{{.Next}}/index.html">prev</a>
+<a id="next" href="../{{.Next}}/index.html">next</a>
 {{else}}
 <span class="disabled">next</span>
 {{end}}
