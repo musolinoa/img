@@ -340,7 +340,7 @@ func loadYear(db *ImgDB, year int, path string) (*YearIdx, error) {
 		monthPath := fmt.Sprintf("%s/%02d", path, m + 1)
 		if albumIdx, err := loadAlbum(db, year, m, monthPath); err != nil {
 			if !os.IsNotExist(err) {
-				return nil, fmt.Errorf("error loading album %s: %v\n", monthPath, err)
+				return nil, fmt.Errorf("error loading album %s: %v", monthPath, err)
 			}
 		} else {
 			yearIdx.Months[m] = albumIdx
@@ -364,7 +364,7 @@ func loadImageDatabase(path string, yearRanges []YearRange, albums []string) (*I
 				continue
 			}
 			if yearIdx, err := loadYear(db, int(year), subdir); err != nil {
-				return nil, fmt.Errorf("loadYear: %v\n", err)
+				return nil, fmt.Errorf("loadYear: %v", err)
 			} else {
 				db.Years[fmt.Sprintf("%d", year)] = yearIdx
 				log.Printf("loaded %s\n", subdir)
@@ -374,7 +374,7 @@ func loadImageDatabase(path string, yearRanges []YearRange, albums []string) (*I
 	for _, album := range albums {
 		subdir := fmt.Sprintf("%s/%s", path, album)
 		if albumIdx, err := loadAlbum(db, 0, 0, subdir); err != nil {
-			return nil, fmt.Errorf("loadAlbum: %v\n", err)
+			return nil, fmt.Errorf("loadAlbum: %v", err)
 		} else {
 			db.Albums[album] = albumIdx
 			log.Printf("loaded %s\n", subdir)
