@@ -46,6 +46,7 @@ func (h *YearIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		tplData.Months[i].Number = fmt.Sprintf("%02d", i+1)
 		tplData.Months[i].Name = time.Month(i+1).String()
 	}
+	w.Header().Add("cache-control", "no-store")
 	if err := h.Tpl.Execute(w, tplData); err != nil {
 		log.Printf("error executing template: %v\n", err)
 	}
@@ -100,6 +101,7 @@ func (h *AlbumIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				tplData.Prev = fmt.Sprintf("../../%d/%02d", prev.Year, prev.Month + 1)
 			}
 		}
+		w.Header().Add("cache-control", "no-store")
 		if err := h.IndexTpl.Execute(w, tplData); err != nil {
 			log.Printf("error executing template: %v\n", err)
 		}
@@ -131,12 +133,14 @@ func (h *AlbumIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			tplData.UpText = fmt.Sprintf("%d/%02d", h.Idx.Year, h.Idx.Month+1)
 		}
 		tplData.Title = fmt.Sprintf("Photos :: %s :: %s", tplData.Title, image)
+		w.Header().Add("cache-control", "no-store")
 		if err := h.ImageTpl.Execute(w, tplData); err != nil {
 			log.Printf("error executing template: %v\n", err)
 		}
 		return
 	}
 	if strings.HasSuffix(strings.ToLower(relpath), ".jpg") {
+		w.Header().Add("cache-control", "private, max-age=3600")
 		http.ServeFile(w, r, fmt.Sprintf("%s/%s", h.Idx.Path, r.URL.Path))
 		return
 	}
@@ -170,6 +174,7 @@ func (h *MainIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	sort.Sort(sort.Reverse(tplData.Years))
 	sort.Sort(tplData.Albums)
+	w.Header().Add("cache-control", "no-store")
 	if err := h.Tpl.Execute(w, tplData); err != nil {
 		log.Printf("error executing template: %v\n", err)
 	}
@@ -650,6 +655,7 @@ func (h *TagIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, fmt.Sprintf("/tags/%s/", parts[0]), http.StatusSeeOther)
 		return
 	}
+	w.Header().Add("cache-control", "no-store")
 	http.StripPrefix(parts[0] + "/", &AlbumIndexHandler{
 		Idx: &AlbumIdx{
 			DB: h.DB,
