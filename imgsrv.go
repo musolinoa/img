@@ -87,7 +87,7 @@ func (h *AlbumIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 		if h.Idx.Year != 0 {
-			tplData.Title = fmt.Sprintf("%s %d", time.Month(h.Idx.Month).String()[0:3], h.Idx.Year)
+			tplData.Title = fmt.Sprintf("%s %d", time.Month(h.Idx.Month+1).String()[0:3], h.Idx.Year)
 			tplData.UpLink = fmt.Sprintf("/%d/index.html", h.Idx.Year)
 			tplData.UpText = fmt.Sprintf("%d", h.Idx.Year)
 		}
@@ -129,7 +129,7 @@ func (h *AlbumIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Tags: h.Tags.ShortList(),
 		}
 		if h.Idx.Year != 0 {
-			tplData.Title = fmt.Sprintf("%s %d", time.Month(h.Idx.Month).String()[0:3], h.Idx.Year)
+			tplData.Title = fmt.Sprintf("%s %d", time.Month(h.Idx.Month+1).String()[0:3], h.Idx.Year)
 			tplData.UpText = fmt.Sprintf("%d/%02d", h.Idx.Year, h.Idx.Month+1)
 		}
 		tplData.Title = fmt.Sprintf("Photos :: %s :: %s", tplData.Title, image)
