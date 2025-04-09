@@ -39,7 +39,7 @@ document.onkeydown = function (e) {
 </head>
 <body>
 <p>{{if .Prev}}<a id="prev" href="{{.Prev}}">prev</a>{{else}}<span class="disabled">prev</span>{{end}} | <a id="up" href=".">{{.UpText}}</a> | {{if .Next}}<a id="next" href="{{.Next}}">next</a>{{else}}<span class="disabled">next</span>{{end}}</p>
-<p><a href="{{.Prefix}}{{.Image}}.full.JPG"><img src="{{.Prefix}}{{.Image}}.big.JPG"/></a></p>
+<p><a href="{{.Prefix}}/{{.Image}}.full.JPG"><img src="{{.Prefix}}/{{.Image}}.big.JPG"/></a></p>
 {{range .ImgTags}} <a href="/tags/{{.}}">#{{.}}</a>{{else}}<br />{{end}}
 <p>
 <div style="display: inline-block; width: 15cm;">

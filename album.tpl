@@ -49,7 +49,7 @@ document.onkeydown = function (e) {
 <span class="disabled">next</span>
 {{end}}
 </p>
-{{range .Images}}<a href="{{.ID}}.html"><img src="{{.Prefix}}{{.ID}}.thumb.JPG"/></a>
+{{range .Images}}<a href="{{.ID}}.html"><img src="{{.Prefix}}/{{.ID}}.thumb.JPG"/></a>
 {{end}}
 <p>
 {{if .Prev}}
