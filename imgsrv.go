@@ -13,6 +13,13 @@ import (
 	"time"
 )
 
+func imgprefix(path string) string {
+	if strings.HasPrefix(path, "misc.") {
+		return "/misc"
+	}
+	return fmt.Sprintf("/%s/%s", path[0:4], path[4:6])
+}
+
 type YearIndexHandler struct {
 	Idx *YearIdx
 	Tpl *template.Template
@@ -83,7 +90,7 @@ func (h *AlbumIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		for _, img := range h.Idx.Images {
 			tplData.Images = append(tplData.Images, TplImgData{
 				ID: img,
-				Prefix: fmt.Sprintf("/%s/%s/", img[0:4], img[4:6]),
+				Prefix: imgprefix(img),
 			})
 		}
 		if h.Idx.Year != 0 {
@@ -123,7 +130,7 @@ func (h *AlbumIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			UpText: "up",
 			Next: h.Idx.Next(image, ".html"),
 			Prev: h.Idx.Prev(image, ".html"),
-			Prefix: fmt.Sprintf("/%s/%s/", image[0:4], image[4:6]),
+			Prefix: imgprefix(image),
 			Image: image,
 			ImgTags: h.Tags.TagsForImage(image),
 			Tags: h.Tags.ShortList(),
@@ -639,7 +646,7 @@ func (h *TagApiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	http.Redirect(w, r, fmt.Sprintf("/%s/%s/%s.html", img[0:4], img[4:6], img), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("%s/%s.html", imgprefix(img), img), http.StatusSeeOther)
 }
 
 type TagIndexHandler struct {
