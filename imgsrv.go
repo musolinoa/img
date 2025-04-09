@@ -692,6 +692,27 @@ type YearRange struct {
 	To uint
 }
 
+type BasicAuthMux struct {
+	serveMux *http.ServeMux
+}
+
+func NewBasicAuthMux(serveMux *http.ServeMux) *BasicAuthMux {
+	return &BasicAuthMux{
+		serveMux: serveMux,
+	}
+}
+
+func (basicAuthMux *BasicAuthMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	user, pass, ok := r.BasicAuth()
+	if !ok || user != "alex" || pass != "holyidentitytheftbatman!" {
+		w.Header().Set("WWW-Authenticate", "Basic realm=PAIN")
+		status := http.StatusUnauthorized
+		http.Error(w, http.StatusText(status), status)
+		return
+	}
+	basicAuthMux.serveMux.ServeHTTP(w, r)
+}
+
 func main() {
 	yearRanges := []YearRange{
 		{From: 2008},
@@ -711,22 +732,23 @@ func main() {
 	if err != nil {
 		log.Fatalf("could not load tags: %v\n", err)
 	}
-	http.Handle("/api/tag", &TagApiHandler{db, tags})
+	mux := http.NewServeMux()
+	mux.Handle("/api/tag", &TagApiHandler{db, tags})
 	for y, yIdx := range db.Years {
 		for m, mIdx := range yIdx.Months {
 			if mIdx != nil {
 				prefix := fmt.Sprintf("/%s/%02d/", y, m+1)
-				http.Handle(prefix, http.StripPrefix(prefix, &AlbumIndexHandler{mIdx, templates.Album, templates.Image, tags}))
+				mux.Handle(prefix, http.StripPrefix(prefix, &AlbumIndexHandler{mIdx, templates.Album, templates.Image, tags}))
 			}
 		}
 		prefix := fmt.Sprintf("/%s/", y)
-		http.Handle(prefix, http.StripPrefix(prefix, &YearIndexHandler{yIdx, templates.Year}))
+		mux.Handle(prefix, http.StripPrefix(prefix, &YearIndexHandler{yIdx, templates.Year}))
 	}
-	http.Handle("/tags/", http.StripPrefix("/tags/", &TagIndexHandler{db, templates.Album, templates.Image, tags}))
+	mux.Handle("/tags/", http.StripPrefix("/tags/", &TagIndexHandler{db, templates.Album, templates.Image, tags}))
 	for album, idx := range db.Albums {
 		prefix := fmt.Sprintf("/%s/", album)
-		http.Handle(prefix, http.StripPrefix(prefix, &AlbumIndexHandler{idx, templates.Album, templates.Image, tags}))
+		mux.Handle(prefix, http.StripPrefix(prefix, &AlbumIndexHandler{idx, templates.Album, templates.Image, tags}))
 	}
-	http.Handle("/", &MainIndexHandler{db, templates.Main, tags})
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	mux.Handle("/", &MainIndexHandler{db, templates.Main, tags})
+	log.Fatal(http.ListenAndServeTLS(":8080", "imgsrv.cert.pem", "imgsrv.key.pem", NewBasicAuthMux(mux)))
 }
